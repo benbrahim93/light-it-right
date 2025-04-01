@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Light It Right! - Voice + Typing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .title {
+      font-size: 24px;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .icons {
+      display: flex;
+      gap: 25px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .icon {
+      font-size: 60px;
+      transition: all 0.3s ease-in-out;
+      color: #333;
+      text-shadow: none;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .on.star {
+      color: yellow;
+      text-shadow: 0 0 20px yellow;
+    }
+
+    .on.moon {
+      color: white;
+      text-shadow: 0 0 20px white;
+    }
+
+    .on.earth {
+      color: deepskyblue;
+      text-shadow: 0 0 20px deepskyblue;
+    }
+
+    input {
+      padding: 12px;
+      font-size: 18px;
+      border-radius: 6px;
+      border: none;
+      width: 90%;
+      max-width: 300px;
+      text-align: center;
+      box-sizing: border-box;
+      margin-top: 10px;
+      background-color: #222;
+      color: white;
+    }
+
+    input:focus {
+      outline: 2px solid deepskyblue;
+    }
+
+    .message {
+      margin-top: 15px;
+      font-size: 16px;
+      min-height: 24px;
+      text-align: center;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      background-color: deepskyblue;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: dodgerblue;
+    }
+
+    button:disabled {
+      background-color: #666;
+      cursor: not-allowed;
+    }
+
+    .listening {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="title" role="banner">🎤📝 Say or type "star", "moon", or "earth" to light it up!</div>
+
+  <div class="icons" role="group" aria-label="Light up icons">
+    <div class="icon star" id="star" role="button" tabindex="0" aria-label="Star icon">★</div>
+    <div class="icon moon" id="moon" role="button" tabindex="0" aria-label="Moon icon">☾</div>
+    <div class="icon earth" id="earth" role="button" tabindex="0" aria-label="Earth icon">🌍</div>
+  </div>
+
+  <input type="text" id="answer" placeholder="Type your answer here" aria-label="Type your answer">
+  <div class="button-group">
+    <button id="voiceButton" onclick="toggleVoiceRecognition()">🎙️ Start Voice</button>
+    <button onclick="resetLights()">🔄 Reset</button>
+  </div>
+  <div class="message" id="message" role="status" aria-live="polite"></div>
+
+  <script>
+    const input = document.getElementById("answer");
+    const message = document.getElementById("message");
+    const voiceButton = document.getElementById("voiceButton");
+    let recognition = null;
+    let isListening = false;
+
+    // Function to check answer and light up
+    function toggleLight(word) {
+      const cleanWord = word.trim().toLowerCase();
+      const items = ["star", "moon", "earth"];
+      let correct = false;
+
+      items.forEach(id => {
+        const el = document.getElementById(id);
+        if (cleanWord === id) {
+          el.classList.add("on", id);
+          message.textContent = `✅ ${id.charAt(0).toUpperCase() + id.slice(1)} is correct. Well done!`;
+          correct = true;
+        }
+      });
+
+      if (!correct) {
+        message.textContent = "❌ No, try again.";
+      }
+    }
+
+    // Reset all lights
+    function resetLights() {
+      const items = ["star", "moon", "earth"];
+      items.forEach(id => {
+        const el = document.getElementById(id);
+        el.classList.remove("on", id);
+      });
+      message.textContent = "";
+    }
+
+    // Typing handler
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        toggleLight(input.value);
+        input.value = "";
+      }
+    });
+
+    // Click handlers for icons
+    document.querySelectorAll('.icon').forEach(icon => {
+      icon.addEventListener('click', function() {
+        toggleLight(this.id);
+      });
+      
+      icon.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleLight(this.id);
+        }
+      });
+    });
+
+    // Voice recognition handler
+    function toggleVoiceRecognition() {
+      if (!('webkitSpeechRecognition' in window)) {
+        alert("Sorry, your browser doesn't support voice recognition.");
+        return;
+      }
+
+      if (!recognition) {
+        recognition = new webkitSpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = function(event) {
+          const transcript = event.results[0][0].transcript;
+          toggleLight(transcript);
+          stopListening();
+        };
+
+        recognition.onerror = function(event) {
+          message.textContent = `⚠️ Voice error: ${event.error}. Try again.`;
+          stopListening();
+        };
+
+        recognition.onend = function() {
+          stopListening();
+        };
+      }
+
+      if (!isListening) {
+        startListening();
+      } else {
+        stopListening();
+      }
+    }
+
+    function startListening() {
+      recognition.start();
+      isListening = true;
+      voiceButton.textContent = "🎙️ Stop Voice";
+      voiceButton.classList.add("listening");
+      message.textContent = "🎧 Listening...";
+    }
+
+    function stopListening() {
+      if (recognition) {
+        recognition.stop();
+        isListening = false;
+        voiceButton.textContent = "🎙️ Start Voice";
+        voiceButton.classList.remove("listening");
+      }
+    }
+  </script>
+</body>
+</html> 
